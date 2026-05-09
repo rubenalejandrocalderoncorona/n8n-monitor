@@ -23,6 +23,8 @@ class N8nMonitorApp extends StatelessWidget {
   }
 }
 
+// Stays in the widget tree at all times — reacts to settingsProvider changes.
+// When settings go from null → value, it automatically shows WorkflowsScreen.
 class _HomeGate extends ConsumerWidget {
   const _HomeGate();
 
@@ -34,9 +36,8 @@ class _HomeGate extends ConsumerWidget {
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (_, __) => const SettingsScreen(isFirstRun: true),
-      data: (s) => s == null
-          ? const SettingsScreen(isFirstRun: true)
-          : const WorkflowsScreen(),
+      data: (s) =>
+          s == null ? const SettingsScreen(isFirstRun: true) : const WorkflowsScreen(),
     );
   }
 }

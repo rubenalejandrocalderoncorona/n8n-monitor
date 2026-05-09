@@ -16,6 +16,8 @@ class SettingsNotifier extends AsyncNotifier<AppSettings?> {
   Future<void> save(AppSettings settings) async {
     await ref.read(settingsServiceProvider).save(settings);
     state = AsyncData(settings);
+    // Force workflowsProvider to rebuild with the new credentials
+    ref.invalidateSelf();
   }
 }
 

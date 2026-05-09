@@ -10,7 +10,8 @@ class WorkflowsNotifier extends AsyncNotifier<List<Workflow>> {
   Future<List<Workflow>> build() => _fetch();
 
   Future<List<Workflow>> _fetch() async {
-    final api = ref.read(apiServiceProvider);
+    // watch (not read) so this provider rebuilds when settings change
+    final api = ref.watch(apiServiceProvider);
     if (api == null) return [];
 
     // Show the list immediately, then enrich with execution status in background

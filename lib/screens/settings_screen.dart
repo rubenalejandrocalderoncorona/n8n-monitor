@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/settings.dart';
 import '../providers/settings_provider.dart';
-import 'workflows_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   final bool isFirstRun;
@@ -45,11 +44,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await ref.read(settingsProvider.notifier).save(settings);
     if (!mounted) return;
     setState(() => _saving = false);
-    if (widget.isFirstRun) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const WorkflowsScreen()),
-      );
-    } else {
+    // _HomeGate watches settingsProvider and will navigate automatically.
+    // If opened from settings icon (not first run), just pop back.
+    if (!widget.isFirstRun) {
       Navigator.of(context).pop();
     }
   }
