@@ -12,10 +12,21 @@ class WorkflowsNotifier extends AsyncNotifier<List<Workflow>> {
   Future<List<Workflow>> _fetch() async {
     final api = ref.read(apiServiceProvider);
     if (api == null) return [];
+
+    // Show the list immediately, then enrich with execution status in background
     final workflows = await api.getWorkflows();
-    // Enrich with last execution status, max 4 concurrent requests
-    final enriched = await _throttledEnrich(api, workflows, concurrency: 4);
-    return enriched;
+    state = AsyncData(workflows);
+
+    _enrichInBackground(api, workflows);
+    return workflows;
+  }
+
+  void _enrichInBackground(N8nApiService api, List<Workflow> workflows) {
+    _throttledEnrich(api, workflows, concurrency: 3).then((enriched) {
+      if (state.hasValue) {
+        state = AsyncData(enriched);
+      }
+    }).catchError((_) {});
   }
 
   Future<List<Workflow>> _throttledEnrich(
@@ -23,13 +34,17 @@ class WorkflowsNotifier extends AsyncNotifier<List<Workflow>> {
     List<Workflow> workflows, {
     required int concurrency,
   }) async {
-    final results = List<Workflow>.filled(workflows.length, workflows[0]);
+    final results = List<Workflow>.of(workflows);
     final semaphore = _Semaphore(concurrency);
     await Future.wait(
       List.generate(workflows.length, (i) async {
         await semaphore.acquire();
         try {
           results[i] = await _enrichWithLastExecution(api, workflows[i]);
+          // Emit partial updates so statuses appear as they load
+          if (state.hasValue) {
+            state = AsyncData(List.of(results));
+          }
         } finally {
           semaphore.release();
         }
@@ -104,9 +119,8 @@ final workflowMetricsProvider = Provider<WorkflowMetrics>((ref) {
   return WorkflowMetrics(
     total: workflows.length,
     active: workflows.where((w) => w.active).length,
-    recentSuccess: workflows
-        .where((w) => w.lastExecutionStatus == 'success')
-        .length,
+    recentSuccess:
+        workflows.where((w) => w.lastExecutionStatus == 'success').length,
     recentError:
         workflows.where((w) => w.lastExecutionStatus == 'error').length,
   );

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:isolate';
+
 import 'package:dio/dio.dart';
 import '../models/execution.dart';
 import '../models/settings.dart';
@@ -21,8 +24,10 @@ class N8nApiService {
           BaseOptions(
             baseUrl: '${settings.baseUrl}/api/v1',
             headers: {'X-N8N-API-KEY': settings.apiKey},
-            connectTimeout: const Duration(seconds: 10),
-            receiveTimeout: const Duration(seconds: 15),
+            connectTimeout: const Duration(seconds: 15),
+            receiveTimeout: const Duration(seconds: 30),
+            // Receive as plain string so we can parse in an isolate
+            responseType: ResponseType.plain,
           ),
         ) {
     _dio.interceptors.add(_ErrorInterceptor());
@@ -31,17 +36,27 @@ class N8nApiService {
   Future<List<Workflow>> getWorkflows() async {
     final res = await _dio.get(
       '/workflows',
-      queryParameters: {'excludePinnedData': true, 'limit': 250},
+      queryParameters: {'limit': 250},
     );
-    final list = res.data['data'] as List<dynamic>;
-    return list
-        .map((e) => Workflow.fromJson(e as Map<String, dynamic>))
-        .toList();
+    // Parse the large JSON payload in a background isolate to avoid UI jank
+    return Isolate.run(() {
+      final decoded = jsonDecode(res.data as String) as Map<String, dynamic>;
+      final list = decoded['data'] as List<dynamic>;
+      return list
+          .map((e) => Workflow.fromJson(e as Map<String, dynamic>))
+          .toList();
+    });
   }
 
   Future<Workflow> setActive(String id, {required bool active}) async {
-    final res =
-        await _dio.patch('/workflows/$id', data: {'active': active});
+    // PATCH needs JSON body — use json responseType temporarily
+    final patchDio = Dio(BaseOptions(
+      baseUrl: _dio.options.baseUrl,
+      headers: _dio.options.headers,
+      connectTimeout: _dio.options.connectTimeout,
+      receiveTimeout: _dio.options.receiveTimeout,
+    ));
+    final res = await patchDio.patch('/workflows/$id', data: {'active': active});
     return Workflow.fromJson(res.data as Map<String, dynamic>);
   }
 
@@ -63,7 +78,8 @@ class N8nApiService {
         'includeData': false,
       },
     );
-    final list = res.data['data'] as List<dynamic>;
+    final decoded = jsonDecode(res.data as String) as Map<String, dynamic>;
+    final list = decoded['data'] as List<dynamic>;
     return list
         .map((e) => Execution.fromJson(e as Map<String, dynamic>))
         .toList();
