@@ -6,7 +6,7 @@ class ExecutionsNotifier
     extends FamilyAsyncNotifier<List<Execution>, String> {
   @override
   Future<List<Execution>> build(String arg) async {
-    final api = ref.read(apiServiceProvider);
+    final api = ref.watch(apiServiceProvider);
     if (api == null) return [];
     return api.getExecutions(arg);
   }

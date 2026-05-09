@@ -4,7 +4,11 @@ import '../models/settings.dart';
 import '../services/settings_service.dart';
 
 final settingsServiceProvider = Provider<SettingsService>(
-  (_) => const SettingsService(FlutterSecureStorage()),
+  (_) => const SettingsService(
+    FlutterSecureStorage(
+      mOptions: MacOsOptions(useDataProtectionKeyChain: false),
+    ),
+  ),
 );
 
 class SettingsNotifier extends AsyncNotifier<AppSettings?> {
@@ -16,8 +20,6 @@ class SettingsNotifier extends AsyncNotifier<AppSettings?> {
   Future<void> save(AppSettings settings) async {
     await ref.read(settingsServiceProvider).save(settings);
     state = AsyncData(settings);
-    // Force workflowsProvider to rebuild with the new credentials
-    ref.invalidateSelf();
   }
 }
 

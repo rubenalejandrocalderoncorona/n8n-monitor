@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/settings_provider.dart';
 import '../providers/workflows_provider.dart';
 import '../widgets/error_view.dart';
 import '../widgets/metrics_header.dart';
@@ -12,6 +13,15 @@ class WorkflowsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+
+    // Don't even attempt to load workflows until settings are confirmed present
+    if (!settings.hasValue || settings.value == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final workflowsAsync = ref.watch(workflowsProvider);
     final metrics = ref.watch(workflowMetricsProvider);
 
@@ -33,12 +43,15 @@ class WorkflowsScreen extends ConsumerWidget {
         child: workflowsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => ErrorView(
-            message: err.toString(),
+            message: 'Error: ${err.toString()}',
             onRetry: () => ref.read(workflowsProvider.notifier).refresh(),
           ),
           data: (workflows) {
             if (workflows.isEmpty) {
-              return const ErrorView(message: 'No workflows found');
+              return ErrorView(
+                message: 'No workflows found.\nCheck your n8n instance has workflows.',
+                onRetry: () => ref.read(workflowsProvider.notifier).refresh(),
+              );
             }
             return CustomScrollView(
               slivers: [
@@ -94,7 +107,8 @@ class WorkflowsScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Color(0xFFFF6B6B))),
+            child:
+                const Text('Delete', style: TextStyle(color: Color(0xFFFF6B6B))),
           ),
         ],
       ),
