@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:isolate';
 
 import 'package:dio/dio.dart';
 import '../models/execution.dart';
@@ -34,18 +33,10 @@ class N8nApiService {
   }
 
   Future<List<Workflow>> getWorkflows() async {
-    final res = await _dio.get(
-      '/workflows',
-      queryParameters: {'limit': 250},
-    );
-    // Parse the large JSON payload in a background isolate to avoid UI jank
-    return Isolate.run(() {
-      final decoded = jsonDecode(res.data as String) as Map<String, dynamic>;
-      final list = decoded['data'] as List<dynamic>;
-      return list
-          .map((e) => Workflow.fromJson(e as Map<String, dynamic>))
-          .toList();
-    });
+    final res = await _dio.get('/workflows', queryParameters: {'limit': 250});
+    final decoded = jsonDecode(res.data as String) as Map<String, dynamic>;
+    final list = decoded['data'] as List<dynamic>;
+    return list.map((e) => Workflow.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<Workflow> setActive(String id, {required bool active}) async {
