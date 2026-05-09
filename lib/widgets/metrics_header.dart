@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../providers/workflows_provider.dart';
 import '../app_theme.dart';
+
+typedef WorkflowMetrics = ({int total, int active, int success, int errors});
 
 class MetricsHeader extends StatelessWidget {
   final WorkflowMetrics metrics;
@@ -17,13 +18,9 @@ class MetricsHeader extends StatelessWidget {
           const SizedBox(width: 8),
           _MetricCard(label: 'Active', value: metrics.active, color: kGreen),
           const SizedBox(width: 8),
-          _MetricCard(
-              label: 'Last Success',
-              value: metrics.recentSuccess,
-              color: kGreen),
+          _MetricCard(label: 'Success', value: metrics.success, color: kGreen),
           const SizedBox(width: 8),
-          _MetricCard(
-              label: 'Last Error', value: metrics.recentError, color: kRed),
+          _MetricCard(label: 'Errors', value: metrics.errors, color: kRed),
         ],
       ),
     );
@@ -35,8 +32,7 @@ class _MetricCard extends StatelessWidget {
   final int value;
   final Color color;
 
-  const _MetricCard(
-      {required this.label, required this.value, required this.color});
+  const _MetricCard({required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -46,24 +42,17 @@ class _MetricCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: kCard,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withAlpha(60), width: 1),
+          border: Border.all(color: color.withAlpha(60)),
         ),
         child: Column(
           children: [
-            Text(
-              '$value',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
+            Text('$value',
+                style: TextStyle(
+                    fontSize: 22, fontWeight: FontWeight.bold, color: color)),
             const SizedBox(height: 2),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 10, color: kGrey),
-            ),
+            Text(label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 10, color: kGrey)),
           ],
         ),
       ),

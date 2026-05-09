@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_theme.dart';
-import 'providers/settings_provider.dart';
+import 'models/settings.dart';
 import 'screens/settings_screen.dart';
 import 'screens/workflows_screen.dart';
+import 'services/settings_service.dart';
 
 void main() {
-  runApp(const ProviderScope(child: N8nMonitorApp()));
+  runApp(const N8nMonitorApp());
 }
 
 class N8nMonitorApp extends StatelessWidget {
@@ -23,21 +23,43 @@ class N8nMonitorApp extends StatelessWidget {
   }
 }
 
-// Stays in the widget tree at all times — reacts to settingsProvider changes.
-// When settings go from null → value, it automatically shows WorkflowsScreen.
-class _HomeGate extends ConsumerWidget {
+class _HomeGate extends StatefulWidget {
   const _HomeGate();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
-    return settings.when(
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
-      error: (_, __) => const SettingsScreen(isFirstRun: true),
-      data: (s) =>
-          s == null ? const SettingsScreen(isFirstRun: true) : const WorkflowsScreen(),
+  State<_HomeGate> createState() => _HomeGateState();
+}
+
+class _HomeGateState extends State<_HomeGate> {
+  bool _loading = true;
+  AppSettings? _settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final s = await SettingsService().load();
+    if (mounted) setState(() { _settings = s; _loading = false; });
+  }
+
+  void _onSettingsSaved(AppSettings s) {
+    setState(() => _settings = s);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_settings == null) {
+      return SettingsScreen(onSaved: _onSettingsSaved, isFirstRun: true);
+    }
+    return WorkflowsScreen(
+      settings: _settings!,
+      onSettingsSaved: _onSettingsSaved,
     );
   }
 }

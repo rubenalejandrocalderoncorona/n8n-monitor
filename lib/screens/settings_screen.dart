@@ -1,30 +1,38 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../app_theme.dart';
 import '../models/settings.dart';
-import '../providers/settings_provider.dart';
+import '../services/settings_service.dart';
 
-class SettingsScreen extends ConsumerStatefulWidget {
+class SettingsScreen extends StatefulWidget {
+  final void Function(AppSettings) onSaved;
   final bool isFirstRun;
 
-  const SettingsScreen({super.key, this.isFirstRun = false});
+  const SettingsScreen({
+    super.key,
+    required this.onSaved,
+    this.isFirstRun = false,
+  });
 
   @override
-  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+  State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _urlCtrl;
-  late final TextEditingController _keyCtrl;
+  final _urlCtrl = TextEditingController();
+  final _keyCtrl = TextEditingController();
   bool _obscureKey = true;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    final existing = ref.read(settingsProvider).valueOrNull;
-    _urlCtrl = TextEditingController(text: existing?.baseUrl ?? '');
-    _keyCtrl = TextEditingController(text: existing?.apiKey ?? '');
+    SettingsService().load().then((s) {
+      if (s != null && mounted) {
+        _urlCtrl.text = s.baseUrl;
+        _keyCtrl.text = s.apiKey;
+      }
+    });
   }
 
   @override
@@ -41,14 +49,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       baseUrl: _urlCtrl.text,
       apiKey: _keyCtrl.text,
     );
-    await ref.read(settingsProvider.notifier).save(settings);
+    await SettingsService().save(settings);
     if (!mounted) return;
     setState(() => _saving = false);
-    // _HomeGate watches settingsProvider and will navigate automatically.
-    // If opened from settings icon (not first run), just pop back.
-    if (!widget.isFirstRun) {
-      Navigator.of(context).pop();
-    }
+    widget.onSaved(settings);
+    if (!widget.isFirstRun) Navigator.of(context).pop();
   }
 
   @override
@@ -94,10 +99,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   hintText: 'n8n_api_...',
                   prefixIcon: const Icon(Icons.vpn_key),
                   suffixIcon: IconButton(
-                    icon: Icon(
-                        _obscureKey ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () =>
-                        setState(() => _obscureKey = !_obscureKey),
+                    icon: Icon(_obscureKey ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () => setState(() => _obscureKey = !_obscureKey),
                   ),
                 ),
                 obscureText: _obscureKey,
@@ -113,7 +116,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         height: 18,
                         width: 18,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
+                            strokeWidth: 2, color: kOnSurface),
                       )
                     : const Text('Save & Connect'),
               ),
