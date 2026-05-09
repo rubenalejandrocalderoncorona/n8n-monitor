@@ -29,7 +29,10 @@ class N8nApiService {
   }
 
   Future<List<Workflow>> getWorkflows() async {
-    final res = await _dio.get('/workflows');
+    final res = await _dio.get(
+      '/workflows',
+      queryParameters: {'excludePinnedData': true, 'limit': 250},
+    );
     final list = res.data['data'] as List<dynamic>;
     return list
         .map((e) => Workflow.fromJson(e as Map<String, dynamic>))
@@ -54,7 +57,11 @@ class N8nApiService {
       {int limit = 25}) async {
     final res = await _dio.get(
       '/executions',
-      queryParameters: {'workflowId': workflowId, 'limit': limit},
+      queryParameters: {
+        'workflowId': workflowId,
+        'limit': limit,
+        'includeData': false,
+      },
     );
     final list = res.data['data'] as List<dynamic>;
     return list

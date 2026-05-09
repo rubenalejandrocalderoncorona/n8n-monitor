@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/workflow.dart';
 import '../services/n8n_api_service.dart';
@@ -11,10 +13,29 @@ class WorkflowsNotifier extends AsyncNotifier<List<Workflow>> {
     final api = ref.read(apiServiceProvider);
     if (api == null) return [];
     final workflows = await api.getWorkflows();
-    final enriched = await Future.wait(
-      workflows.map((w) => _enrichWithLastExecution(api, w)),
-    );
+    // Enrich with last execution status, max 4 concurrent requests
+    final enriched = await _throttledEnrich(api, workflows, concurrency: 4);
     return enriched;
+  }
+
+  Future<List<Workflow>> _throttledEnrich(
+    N8nApiService api,
+    List<Workflow> workflows, {
+    required int concurrency,
+  }) async {
+    final results = List<Workflow>.filled(workflows.length, workflows[0]);
+    final semaphore = _Semaphore(concurrency);
+    await Future.wait(
+      List.generate(workflows.length, (i) async {
+        await semaphore.acquire();
+        try {
+          results[i] = await _enrichWithLastExecution(api, workflows[i]);
+        } finally {
+          semaphore.release();
+        }
+      }),
+    );
+    return results;
   }
 
   Future<Workflow> _enrichWithLastExecution(
@@ -90,3 +111,29 @@ final workflowMetricsProvider = Provider<WorkflowMetrics>((ref) {
         workflows.where((w) => w.lastExecutionStatus == 'error').length,
   );
 });
+
+class _Semaphore {
+  final int _max;
+  int _current = 0;
+  final _queue = <Completer<void>>[];
+
+  _Semaphore(this._max);
+
+  Future<void> acquire() async {
+    if (_current < _max) {
+      _current++;
+      return;
+    }
+    final completer = Completer<void>();
+    _queue.add(completer);
+    await completer.future;
+  }
+
+  void release() {
+    if (_queue.isNotEmpty) {
+      _queue.removeAt(0).complete();
+    } else {
+      _current--;
+    }
+  }
+}
